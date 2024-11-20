@@ -1,7 +1,14 @@
 import { Request, Response } from "express";
 import { Message } from "../models/message.model";
 import { Chat } from "../models/chat.model";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
+import {
+  addGroupMemberSchema,
+  createGroupChatSchema,
+  objectIdSchema,
+  removeGroupMemberSchema,
+  sendGroupMessageSchema,
+} from "../validations/chat.validations";
 
 // Send a group message
 export const sendGroupMessage = async (
@@ -9,12 +16,16 @@ export const sendGroupMessage = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { senderId, chatId, content, media, emoji, voice } = req.body;
+    // Validate request body
+    const validationResult = sendGroupMessageSchema.safeParse(req.body);
 
-    if (!senderId || !chatId) {
-      res.status(400).json({ error: "Sender and chatId are required" });
+    if (!validationResult.success) {
+      res.status(400).json({ error: validationResult.error.errors });
       return;
     }
+
+    const { senderId, chatId, content, media, emoji, voice } =
+      validationResult.data;
 
     const message = await Message.create({
       sender: senderId,
@@ -41,9 +52,17 @@ export const getGroupMessages = async (
   res: Response
 ): Promise<void> => {
   try {
-    const chatId = req.params.chatId;
+    // Validate the chatId parameter from req.params using objectIdSchema
+    const chatIdValidation = objectIdSchema.safeParse(req.params.chatId);
 
-    const messages = await Message.find({ chat: chatId });
+    if (!chatIdValidation.success) {
+      res.status(400).json({ error: "Invalid chatId parameter" });
+      return;
+    }
+
+    const messages = await Message.find({ chat: req.params.chatId });
+
+    console.log("messages is a", messages);
     res.status(200).json({ messages });
     return;
   } catch (error) {
@@ -55,14 +74,14 @@ export const getGroupMessages = async (
 //Create Group for a chat
 export const createGroupChat = async (req: Request, res: Response) => {
   try {
-    const { groupName, groupAvatar, participants } = req.body;
+    const validationResult = createGroupChatSchema.safeParse(req.body);
 
-    if (!groupName || !participants || participants.length === 0) {
-      res
-        .status(400)
-        .json({ error: "Group name and participants are required" });
+    if (!validationResult.success) {
+      res.status(400).json({ error: validationResult.error.errors });
       return;
     }
+
+    const { groupName, groupAvatar, participants } = validationResult.data;
 
     const groupChat = await Chat.create({
       isGroupChat: true,
@@ -81,10 +100,26 @@ export const createGroupChat = async (req: Request, res: Response) => {
 //add Group member for a chat
 export const addGroupMember = async (req: Request, res: Response) => {
   try {
-    const { chatId } = req.params;
-    const { userIds } = req.body; // Expecting an array of user IDs
+    // const { chatId } = req.params;
+    //  const { userIds } = req.body; // Expecting an array of user IDs
+    // Validate the chatId parameter from req.params using objectIdSchema
+    const chatIdValidation = objectIdSchema.safeParse(req.params.chatId);
 
-    const chat = await Chat.findById(chatId);
+    if (!chatIdValidation.success) {
+      res.status(400).json({ error: "Invalid chatId parameter" });
+      return;
+    }
+
+    const validationResult = addGroupMemberSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({ error: validationResult.error.errors });
+      return;
+    }
+
+    const { userIds } = validationResult.data;
+
+    const chat = await Chat.findById(req.params.chatId);
     if (!chat) {
       res.status(404).json({ error: "Chat not found" });
       return;
@@ -94,10 +129,6 @@ export const addGroupMember = async (req: Request, res: Response) => {
       res.status(400).json({ error: "Not a group chat" });
       return;
     }
-
-    // const newMembers = userIds.filter(
-    //   (userId: string) => !chat.participants.includes(userId)
-    // );
 
     // Ensure all IDs are treated as ObjectId
     const newMembers = userIds.filter((userId: string) => {
@@ -112,7 +143,11 @@ export const addGroupMember = async (req: Request, res: Response) => {
       return;
     }
 
-    chat.participants.push(...newMembers); // Add only non-duplicate users
+    // Add new members
+    chat.participants.push(
+      ...newMembers.map((id) => new mongoose.Types.ObjectId(id))
+    );
+
     await chat.save();
 
     res.status(200).json({ message: "Users added to group", newMembers });
@@ -125,10 +160,26 @@ export const addGroupMember = async (req: Request, res: Response) => {
 //add Group member for a chat
 export const removeGroupMember = async (req: Request, res: Response) => {
   try {
-    const { chatId } = req.params;
-    const { userId } = req.body;
+    // const { chatId } = req.params;
 
-    const chat = await Chat.findById(chatId);
+    const chatIdValidation = objectIdSchema.safeParse(req.params.chatId);
+
+    if (!chatIdValidation.success) {
+      res.status(400).json({ error: "Invalid chatId parameter" });
+      return;
+    }
+
+    // Validate request body
+    const validationResult = removeGroupMemberSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({ error: validationResult.error.errors });
+      return;
+    }
+
+    const { userId } = validationResult.data;
+
+    const chat = await Chat.findById(req.params.chatId);
     if (!chat) {
       res.status(404).json({ error: "Chat not found" });
       return;
