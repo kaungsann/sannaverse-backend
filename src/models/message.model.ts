@@ -14,7 +14,7 @@ interface IMessage extends Document {
 
 const MessageSchema = new Schema<IMessage>({
   sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  receiver: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  receiver: { type: Schema.Types.ObjectId, ref: "User" },
   chat: { type: Schema.Types.ObjectId, ref: "Chat" },
   content: { type: String },
   media: { type: String },
