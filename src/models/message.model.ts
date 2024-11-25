@@ -1,4 +1,6 @@
 import { Schema, model, Document, Types } from "mongoose";
+import toJSON from "./plugins/toJSON"; // Adjust the path to your toJSON plugin file
+import paginate from "./plugins/paginate"; // Adjust the path to your paginate plugin file
 
 interface IMessage extends Document {
   sender: Types.ObjectId;
@@ -23,5 +25,9 @@ const MessageSchema = new Schema<IMessage>({
   readBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   createdAt: { type: Date, default: Date.now },
 });
+
+// Apply plugins to the schema
+MessageSchema.plugin(toJSON); // Enables the transformation logic
+MessageSchema.plugin(paginate); // Adds pagination functionality
 
 export const Message = model<IMessage>("Message", MessageSchema);

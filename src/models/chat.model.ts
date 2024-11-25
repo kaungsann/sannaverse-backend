@@ -1,5 +1,8 @@
 import { Schema, model, Document, Types } from "mongoose";
 
+import toJSON from "./plugins/toJSON"; // Adjust the path to your toJSON plugin file
+import paginate from "./plugins/paginate"; // Adjust the path to your paginate plugin file
+
 interface IChat extends Document {
   isGroupChat: boolean;
   participants: Types.ObjectId[];
@@ -19,5 +22,9 @@ const ChatSchema = new Schema<IChat>({
   lastMessage: { type: Schema.Types.ObjectId, ref: "Message" },
   createdAt: { type: Date, default: Date.now },
 });
+
+// Apply plugins to the schema
+ChatSchema.plugin(toJSON); // Enables the transformation logic
+ChatSchema.plugin(paginate); // Adds pagination functionality
 
 export const Chat = model<IChat>("Chat", ChatSchema);
